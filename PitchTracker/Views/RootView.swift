@@ -1,0 +1,132 @@
+import SwiftUI
+
+struct CalibrationView: View {
+    @EnvironmentObject private var store: PitchStore
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var rect: StrikeZoneRect
+    @State private var mound: Double
+
+    init() {
+        _rect = State(initialValue: .default)
+        _mound = State(initialValue: 60.5)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Setup") {
+                    Text("Mount phone behind catcher or on a tripod. Align the green box with the real strike zone.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Stepper("Mound distance: \(mound, specifier: "%.1f") ft", value: $mound, in: 40...66, step: 0.5)
+                }
+                Section("Strike zone overlay") {
+                    LabeledContent("Left") { Slider(value: $rect.x, in: 0.1...0.5) }
+                    LabeledContent("Bottom") { Slider(value: $rect.y, in: 0.1...0.5) }
+                    LabeledContent("Width") { Slider(value: $rect.width, in: 0.15...0.5) }
+                    LabeledContent("Height") { Slider(value: $rect.height, in: 0.15...0.5) }
+                }
+                Section("Tips for camera tracking") {
+                    Label("Stable scene — camera must not move during pitch", systemImage: "camera.fill")
+                    Label("Bright ball / dark background works best", systemImage: "sun.max")
+                    Label("Use ARM right as pitcher releases", systemImage: "record.circle")
+                    Label("Works best bullpen 40–60 ft; MLB mound 60.5 ft", systemImage: "ruler")
+                }
+            }
+            .navigationTitle("Calibrate")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        store.updateZone(rect)
+                        store.updateMoundDistance(mound)
+                        dismiss()
+                    }
+                }
+            }
+            .onAppear {
+                rect = store.strikeZoneRect
+                mound = store.moundDistanceFt
+            }
+        }
+    }
+}
+
+struct SessionsView: View {
+    @EnvironmentObject private var store: PitchStore
+    @State private var shareURL: URL?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let session = store.activeSession {
+                    Section("Live stats") {
+                        StatRow(label: "Avg mph", value: "\(session.stats.avgVelo)")
+                        StatRow(label: "Max mph", value: "\(session.stats.maxVelo)")
+                        StatRow(label: "In zone", value: "\(session.stats.zonePct)%")
+                        StatRow(label: "Strikes", value: "\(session.stats.strikePct)%")
+                    }
+                    Section("Recent pitches") {
+                        ForEach(session.pitches.suffix(10).reversed()) { p in
+                            HStack {
+                                Text("#\(p.pitchNumber)")
+                                Text(p.type.rawValue).bold()
+                                Spacer()
+                                Text("\(Int(p.velocity)) mph")
+                                Text(p.inZone ? "Z" : "C").foregroundStyle(p.inZone ? .green : .orange)
+                                if p.trackedAutomatically { Image(systemName: "camera.viewfinder").font(.caption2) }
+                            }
+                        }
+                    }
+                }
+                Section("Sessions") {
+                    ForEach(store.sessions) { s in
+                        Button {
+                            store.activeSessionID = s.id
+                        } label: {
+                            HStack {
+                                Text(s.pitcherName)
+                                Spacer()
+                                Text("\(s.pitches.count)")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .onDelete { idx in
+                        for i in idx {
+                            store.deleteSession(store.sessions[i].id)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Sessions")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if let url = store.exportActiveSessionJSON() {
+                        ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct StatRow: View {
+    let label: String
+    let value: String
+    var body: some View {
+        HStack { Text(label); Spacer(); Text(value).bold() }
+    }
+}
+
+struct RootView: View {
+    var body: some View {
+        TabView {
+            TrackView()
+                .tabItem { Label("Track", systemImage: "camera.viewfinder") }
+            SessionsView()
+                .tabItem { Label("Sessions", systemImage: "chart.line.uptrend.xyaxis") }
+        }
+    }
+}
