@@ -76,7 +76,7 @@ final class CameraManager: NSObject, ObservableObject {
                 self.session.addOutput(output)
                 self.videoOutput = output
                 if let connection = output.connection(with: .video) {
-                    if connection.isVideoRotationAngleSupported {
+                    if connection.isVideoRotationAngleSupported(90) {
                         connection.videoRotationAngle = 90
                     } else if connection.isVideoOrientationSupported {
                         connection.videoOrientation = .portrait
