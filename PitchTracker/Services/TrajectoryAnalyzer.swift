@@ -7,17 +7,17 @@ final class TrajectoryAnalyzer: ObservableObject {
     @Published var livePoints: [CGPoint] = []
     @Published var lastHit: TrajectoryHit?
     @Published var isTracking = false
-    @Published var statusText = "Point camera at the mound. Tap ARM when pitcher winds up."
+    @Published var statusText = "Listening — just pitch"
 
     private var request: VNDetectTrajectoriesRequest?
     private var sequenceHandler = VNSequenceRequestHandler()
     private var idleFrames = 0
-    private var activeTrajectoryUUID: UUID?
     private var firstTimestamp: CMTime?
     private var lastTimestamp: CMTime?
     private var moundDistanceFt: Double = 60.5
     private var zoneRect: StrikeZoneRect = .default
-    private let idleReset = 25
+    private let idleReset = 18
+    private var cooldownUntil: Date?
 
     private var frameCount = 0
     private var lastFrameTime: CMTime?
@@ -25,28 +25,33 @@ final class TrajectoryAnalyzer: ObservableObject {
     func configure(moundDistanceFt: Double, zoneRect: StrikeZoneRect) {
         self.moundDistanceFt = moundDistanceFt
         self.zoneRect = zoneRect
-        resetTracking()
+        prepareForNextPitch()
         setupRequest()
     }
 
-    func armTracking() {
-        resetTracking()
+    /// Always-on mode — no button press before each pitch.
+    func startListening() {
         isTracking = true
-        statusText = "Tracking… throw detected automatically"
+        cooldownUntil = nil
+        statusText = "Listening — just pitch"
     }
 
-    func resetTracking() {
+    func prepareForNextPitch() {
         livePoints = []
         lastHit = nil
         idleFrames = 0
         frameCount = 0
-        activeTrajectoryUUID = nil
         firstTimestamp = nil
         lastTimestamp = nil
         lastFrameTime = nil
-        request = nil
         sequenceHandler = VNSequenceRequestHandler()
         setupRequest()
+    }
+
+    func resetTracking() {
+        prepareForNextPitch()
+        isTracking = false
+        statusText = "Paused"
     }
 
     private func setupRequest() {
@@ -62,6 +67,7 @@ final class TrajectoryAnalyzer: ObservableObject {
 
     func process(sampleBuffer: CMSampleBuffer, timestamp: CMTime) {
         guard isTracking, let request else { return }
+        if let cooldownUntil, Date() < cooldownUntil { return }
         lastFrameTime = timestamp
         frameCount += 1
         do {
@@ -108,7 +114,6 @@ final class TrajectoryAnalyzer: ObservableObject {
         guard duration > 0.05 else { resetIdleOnly(); return }
 
         guard let crossing = plateCrossingPoint(from: livePoints) else {
-            statusText = "Couldn’t find plate crossing — tap screen to mark manually"
             resetIdleOnly()
             return
         }
@@ -123,8 +128,8 @@ final class TrajectoryAnalyzer: ObservableObject {
             points: livePoints
         )
         lastHit = hit
-        isTracking = false
-        statusText = String(format: "Tracked %.0f mph @ zone", hit.velocityMph)
+        cooldownUntil = Date().addingTimeInterval(2.0)
+        statusText = String(format: "Logged %.0f mph — listening", hit.velocityMph)
         resetIdleOnly()
     }
 

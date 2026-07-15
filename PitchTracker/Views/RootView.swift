@@ -36,9 +36,9 @@ struct CalibrationView: View {
                     rect = rect.withCorrectAspect()
                 }
                 Section("Tips for camera tracking") {
+                    Label("Mount phone and forget it — pitches log automatically", systemImage: "hands.sparkles")
                     Label("Stable scene — camera must not move during pitch", systemImage: "camera.fill")
                     Label("Bright ball / dark background works best", systemImage: "sun.max")
-                    Label("Use ARM right as pitcher releases", systemImage: "record.circle")
                     Label("Works best bullpen 40–60 ft; MLB mound 60.5 ft", systemImage: "ruler")
                 }
             }
@@ -64,6 +64,9 @@ struct CalibrationView: View {
 struct SessionsView: View {
     @EnvironmentObject private var store: PitchStore
     @State private var shareURL: URL?
+    @State private var showCalibration = false
+    @State private var showNewSession = false
+    @State private var pitcherName = ""
 
     var body: some View {
         NavigationStack {
@@ -85,6 +88,9 @@ struct SessionsView: View {
                                 Text(p.inZone ? "Z" : "C").foregroundStyle(p.inZone ? .green : .orange)
                                 if p.trackedAutomatically { Image(systemName: "camera.viewfinder").font(.caption2) }
                             }
+                        }
+                        if !session.pitches.isEmpty {
+                            Button("Undo last pitch") { store.undoLastPitch() }
                         }
                     }
                 }
@@ -110,11 +116,28 @@ struct SessionsView: View {
             }
             .navigationTitle("Sessions")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Calibrate") { showCalibration = true }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    if let url = store.exportActiveSessionJSON() {
-                        ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }
+                    HStack {
+                        Button("New") { showNewSession = true }
+                        if let url = store.exportActiveSessionJSON() {
+                            ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }
+                        }
                     }
                 }
+            }
+            .sheet(isPresented: $showCalibration) {
+                CalibrationView()
+            }
+            .alert("New session", isPresented: $showNewSession) {
+                TextField("Pitcher name", text: $pitcherName)
+                Button("Start") {
+                    store.createSession(name: pitcherName)
+                    pitcherName = ""
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }

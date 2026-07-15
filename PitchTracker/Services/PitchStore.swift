@@ -10,9 +10,24 @@ final class PitchStore: ObservableObject {
     private let storageKey = "pitch-tracker-ios-sessions-v1"
     private let zoneKey = "pitch-tracker-zone-v1"
     private let moundKey = "pitch-tracker-mound-ft"
+    private let pitcherKey = "pitch-tracker-last-pitcher"
 
     init() {
         load()
+    }
+
+    var lastPitcherName: String {
+        UserDefaults.standard.string(forKey: pitcherKey) ?? "Bullpen"
+    }
+
+    /// Hands-free: resume or create a session without prompts.
+    func ensureActiveSession() {
+        if activeSession != nil { return }
+        if let latest = sessions.first {
+            activeSessionID = latest.id
+            return
+        }
+        createSession(name: lastPitcherName)
     }
 
     var activeSession: PitchSession? {
@@ -21,9 +36,11 @@ final class PitchStore: ObservableObject {
     }
 
     func createSession(name: String) {
-        let session = PitchSession(pitcherName: name.isEmpty ? "Pitcher" : name, moundDistanceFt: moundDistanceFt)
+        let resolved = name.isEmpty ? "Bullpen" : name
+        let session = PitchSession(pitcherName: resolved, moundDistanceFt: moundDistanceFt)
         sessions.insert(session, at: 0)
         activeSessionID = session.id
+        UserDefaults.standard.set(resolved, forKey: pitcherKey)
         persist()
     }
 
