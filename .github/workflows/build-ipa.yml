@@ -26,7 +26,10 @@ jobs:
           xcodebuild -project PitchTracker.xcodeproj -scheme PitchTracker \
             -configuration Release -archivePath build/PitchTracker.xcarchive \
             -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO archive
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS=NO \
+            archive
 
       - name: Package unsigned IPA
         run: |
