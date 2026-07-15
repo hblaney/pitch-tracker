@@ -69,7 +69,8 @@ final class PitchStore: ObservableObject {
             activeSessionID = decoded.first?.id
         }
         if let zdata = UserDefaults.standard.data(forKey: zoneKey),
-           let zone = try? JSONDecoder().decode(StrikeZoneRect.self, from: zdata) {
+           let zone = try? JSONDecoder().decode(StrikeZoneRect.self, from: zdata),
+           zone.isPlausible {
             strikeZoneRect = zone
         }
         let mound = UserDefaults.standard.double(forKey: moundKey)

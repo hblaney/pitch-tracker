@@ -22,10 +22,18 @@ struct CalibrationView: View {
                     Stepper("Mound distance: \(mound, specifier: "%.1f") ft", value: $mound, in: 40...66, step: 0.5)
                 }
                 Section("Strike zone overlay") {
-                    LabeledContent("Left") { Slider(value: $rect.x, in: 0.1...0.5) }
-                    LabeledContent("Bottom") { Slider(value: $rect.y, in: 0.1...0.5) }
-                    LabeledContent("Width") { Slider(value: $rect.width, in: 0.15...0.5) }
-                    LabeledContent("Height") { Slider(value: $rect.height, in: 0.15...0.5) }
+                    Text("Green box = rulebook zone (17\" wide). Align it with the real zone behind the plate.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    LabeledContent("Left") { Slider(value: $rect.x, in: 0.1...0.55) }
+                    LabeledContent("Bottom") { Slider(value: $rect.y, in: 0.15...0.55) }
+                    LabeledContent("Width") { Slider(value: $rect.width, in: 0.18...0.42) }
+                    Button("Reset zone to default") {
+                        rect = .default
+                    }
+                }
+                .onChange(of: rect.width) { _, _ in
+                    rect = rect.withCorrectAspect()
                 }
                 Section("Tips for camera tracking") {
                     Label("Stable scene — camera must not move during pitch", systemImage: "camera.fill")

@@ -124,13 +124,19 @@ struct SessionStats {
 }
 
 struct StrikeZoneRect: Codable, Equatable {
-    /// Normalized overlay rect on camera preview (0-1)
+    /// Normalized overlay rect on camera preview (0-1), bottom-left origin (catcher view).
     var x: Double
     var y: Double
     var width: Double
     var height: Double
 
-    static let `default` = StrikeZoneRect(x: 0.34, y: 0.28, width: 0.32, height: 0.36)
+    /// MLB plate is 17" wide; rulebook zone height is ~17–22" depending on batter.
+    static let plateWidthInches: Double = 17
+    static let zoneHeightInches: Double = 21
+    static let zoneAspect: Double = plateWidthInches / zoneHeightInches
+
+    /// Sized for portrait phone preview — wide zone, not a tall "door".
+    static let `default` = StrikeZoneRect(x: 0.365, y: 0.34, width: 0.27, height: 0.155)
 
     func contains(normalized nx: Double, ny: Double) -> Bool {
         nx >= x && nx <= x + width && ny >= y && ny <= y + height
@@ -138,6 +144,19 @@ struct StrikeZoneRect: Codable, Equatable {
 
     func clampPoint(_ nx: Double, _ ny: Double) -> (Double, Double) {
         (min(max(nx, 0), 1), min(max(ny, 0), 1))
+    }
+
+    /// Reject saved zones that look like the old tall default on portrait screens.
+    var isPlausible: Bool {
+        let portraitHeightOverWidth = 852.0 / 393.0
+        let onScreenAspect = (width / height) * portraitHeightOverWidth
+        return onScreenAspect > 0.65 && onScreenAspect < 1.05 && height <= 0.24 && width >= 0.18
+    }
+
+    func withCorrectAspect(screenAspect heightOverWidth: Double = 852.0 / 393.0) -> StrikeZoneRect {
+        var copy = self
+        copy.height = copy.width / (Self.zoneAspect * heightOverWidth)
+        return copy
     }
 }
 

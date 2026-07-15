@@ -41,12 +41,24 @@ struct StrikeZoneOverlay: View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
+            let zoneRect = CGRect(
+                x: rect.x * w,
+                y: (1 - rect.y - rect.height) * h,
+                width: rect.width * w,
+                height: rect.height * h
+            )
             ZStack {
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(Color.green.opacity(0.9), lineWidth: 2)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.08)))
-                    .frame(width: rect.width * w, height: rect.height * h)
-                    .position(x: (rect.x + rect.width / 2) * w, y: (1 - rect.y - rect.height / 2) * h)
+                StrikeZonePlateShape()
+                    .stroke(Color.green.opacity(0.95), lineWidth: 2)
+                    .background(
+                        StrikeZonePlateShape()
+                            .fill(Color.green.opacity(0.08))
+                    )
+                    .frame(width: zoneRect.width, height: zoneRect.height + zoneRect.width * 0.42)
+                    .position(
+                        x: zoneRect.midX,
+                        y: zoneRect.midY + zoneRect.width * 0.21
+                    )
 
                 Path { path in
                     guard trajectoryPoints.count > 1 else { return }
@@ -73,6 +85,29 @@ struct StrikeZoneOverlay: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// Strike zone rectangle with home plate attached at the bottom (catcher view).
+struct StrikeZonePlateShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let zoneHeight = rect.height / 1.42
+        let plateHeight = rect.height - zoneHeight
+        let zone = CGRect(x: 0, y: 0, width: rect.width, height: zoneHeight)
+
+        var path = Path()
+        path.addRect(zone)
+
+        let inset = rect.width * 0.12
+        let plateTop = zoneHeight
+        path.move(to: CGPoint(x: inset, y: plateTop))
+        path.addLine(to: CGPoint(x: rect.width - inset, y: plateTop))
+        path.addLine(to: CGPoint(x: rect.width, y: plateTop + plateHeight * 0.45))
+        path.addLine(to: CGPoint(x: rect.width / 2, y: rect.height))
+        path.addLine(to: CGPoint(x: 0, y: plateTop + plateHeight * 0.45))
+        path.closeSubpath()
+
+        return path
     }
 }
 
