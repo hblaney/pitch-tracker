@@ -10,7 +10,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -runFirstLaunch || true
+          xcodebuild -downloadPlatform iOS || true
 
       - name: Install XcodeGen
         run: brew install xcodegen
