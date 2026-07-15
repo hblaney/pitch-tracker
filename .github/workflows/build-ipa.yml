@@ -13,7 +13,11 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           xcodebuild -runFirstLaunch || true
-          xcodebuild -downloadPlatform iOS || true
+          for attempt in 1 2 3; do
+            xcodebuild -downloadPlatform iOS && break
+            echo "Platform download attempt $attempt failed; retrying..."
+            sleep 20
+          done
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -26,10 +30,7 @@ jobs:
           xcodebuild -project PitchTracker.xcodeproj -scheme PitchTracker \
             -configuration Release -archivePath build/PitchTracker.xcarchive \
             -destination 'generic/platform=iOS' \
-            -sdk iphoneos \
-            CODE_SIGNING_ALLOWED=NO \
-            ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS=NO \
-            archive
+            CODE_SIGNING_ALLOWED=NO archive
 
       - name: Package unsigned IPA
         run: |
