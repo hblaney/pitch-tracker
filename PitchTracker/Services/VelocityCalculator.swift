@@ -3,10 +3,13 @@ import CoreGraphics
 
 enum VelocityCalculator {
     /// Estimate mph from trajectory travel time across known distance (ft).
-    /// Vision gives normalized coords over time; we use plate crossing segment.
-    static func mph(distanceFeet: Double, durationSeconds: Double) -> Double {
+    static func mph(distanceFeet: Double, durationSeconds: Double, mount: CameraMount = .behindCatcher) -> Double {
         guard durationSeconds > 0.01 else { return 0 }
-        let fps = distanceFeet / durationSeconds
+        let pathFeet = switch mount {
+        case .behindCatcher: distanceFeet
+        case .besidePitcher: distanceFeet * 1.02
+        }
+        let fps = pathFeet / durationSeconds
         return fps * 3600.0 / 5280.0
     }
 

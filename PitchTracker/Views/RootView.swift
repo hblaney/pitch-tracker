@@ -6,40 +6,73 @@ struct CalibrationView: View {
 
     @State private var rect: StrikeZoneRect
     @State private var mound: Double
+    @State private var mount: CameraMount
+    @State private var handedness: PitcherHandedness
 
     init() {
-        _rect = State(initialValue: .default)
-        _mound = State(initialValue: 60.5)
+        _rect = State(initialValue: .defaultZone(for: .besidePitcher, handedness: .right))
+        _mound = State(initialValue: 46)
+        _mount = State(initialValue: .besidePitcher)
+        _handedness = State(initialValue: .right)
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Setup") {
-                    Text("Mount phone behind catcher or on a tripod. Align the green box with the real strike zone.")
+                Section("Camera placement") {
+                    Picker("Mount", selection: $mount) {
+                        ForEach(CameraMount.allCases) { option in
+                            Text(option.label).tag(option)
+                        }
+                    }
+                    Picker("Pitcher", selection: $handedness) {
+                        ForEach(PitcherHandedness.allCases) { option in
+                            Text(option.label).tag(option)
+                        }
+                    }
+                    Text(mount.setupHint)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Stepper("Mound distance: \(mound, specifier: "%.1f") ft", value: $mound, in: 40...66, step: 0.5)
+                    if mount == .besidePitcher {
+                        Text("Put the tripod on your \(handedness.openSideLabel) — a few feet beside you on the mound, not in front of the plate.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Section("Distance") {
+                    Stepper("Mound to plate: \(mound, specifier: "%.1f") ft", value: $mound, in: 30...66, step: 0.5)
+                    Text(mount == .besidePitcher ? "Backyard bullpen is usually ~46 ft." : "MLB regulation is 60.5 ft.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 Section("Strike zone overlay") {
-                    Text("Green box = rulebook zone (17\" wide). Align it with the real zone behind the plate.")
+                    Text("Align the green box with where the zone looks on screen.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     LabeledContent("Left") { Slider(value: $rect.x, in: 0.1...0.55) }
-                    LabeledContent("Bottom") { Slider(value: $rect.y, in: 0.15...0.55) }
-                    LabeledContent("Width") { Slider(value: $rect.width, in: 0.18...0.42) }
+                    LabeledContent("Bottom") { Slider(value: $rect.y, in: 0.15...0.65) }
+                    LabeledContent("Width") { Slider(value: $rect.width, in: 0.12...0.42) }
                     Button("Reset zone to default") {
-                        rect = .default
+                        rect = StrikeZoneRect.defaultZone(for: mount, handedness: handedness)
                     }
                 }
                 .onChange(of: rect.width) { _, _ in
-                    rect = rect.withCorrectAspect()
+                    rect = rect.withCorrectAspect(for: mount)
                 }
-                Section("Tips for camera tracking") {
-                    Label("Mount phone and forget it — pitches log automatically", systemImage: "hands.sparkles")
-                    Label("Stable scene — camera must not move during pitch", systemImage: "camera.fill")
-                    Label("Bright ball / dark background works best", systemImage: "sun.max")
-                    Label("Works best bullpen 40–60 ft; MLB mound 60.5 ft", systemImage: "ruler")
+                .onChange(of: mount) { _, newMount in
+                    rect = StrikeZoneRect.defaultZone(for: newMount, handedness: handedness)
+                    if newMount == .besidePitcher, mound > 55 { mound = 46 }
+                    if newMount == .behindCatcher, mound < 55 { mound = 60.5 }
+                }
+                .onChange(of: handedness) { _, _ in
+                    if mount == .besidePitcher {
+                        rect = StrikeZoneRect.defaultZone(for: mount, handedness: handedness)
+                    }
+                }
+                Section("Tips") {
+                    Label("Mount once, then forget it — pitches log automatically", systemImage: "hands.sparkles")
+                    Label("Keep the camera still for the whole session", systemImage: "camera.fill")
+                    Label("White ball on a dark backstop works best", systemImage: "sun.max")
                 }
             }
             .navigationTitle("Calibrate")
@@ -47,6 +80,7 @@ struct CalibrationView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        store.updateCameraSetup(mount: mount, handedness: handedness, resetZone: false)
                         store.updateZone(rect)
                         store.updateMoundDistance(mound)
                         dismiss()
@@ -56,6 +90,8 @@ struct CalibrationView: View {
             .onAppear {
                 rect = store.strikeZoneRect
                 mound = store.moundDistanceFt
+                mount = store.cameraMount
+                handedness = store.pitcherHandedness
             }
         }
     }

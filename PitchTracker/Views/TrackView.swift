@@ -18,6 +18,7 @@ struct TrackView: View {
             }
 
             StrikeZoneOverlay(
+                mount: store.cameraMount,
                 rect: store.strikeZoneRect,
                 trajectoryPoints: analyzer.livePoints,
                 pendingPoint: nil,
@@ -50,19 +51,23 @@ struct TrackView: View {
                 }
             }
             camera.requestAccessAndStart()
-            analyzer.configure(moundDistanceFt: store.moundDistanceFt, zoneRect: store.strikeZoneRect)
+            syncAnalyzer()
             analyzer.startListening()
         }
         .onDisappear {
             camera.stop()
             analyzer.resetTracking()
         }
-        .onChange(of: store.moundDistanceFt) { _, v in
-            analyzer.configure(moundDistanceFt: v, zoneRect: store.strikeZoneRect)
+        .onChange(of: store.moundDistanceFt) { _, _ in
+            syncAnalyzer()
             analyzer.startListening()
         }
-        .onChange(of: store.strikeZoneRect) { _, z in
-            analyzer.configure(moundDistanceFt: store.moundDistanceFt, zoneRect: z)
+        .onChange(of: store.strikeZoneRect) { _, _ in
+            syncAnalyzer()
+            analyzer.startListening()
+        }
+        .onChange(of: store.cameraMount) { _, _ in
+            syncAnalyzer()
             analyzer.startListening()
         }
         .onChange(of: analyzer.lastHit?.velocityMph) { _, _ in
@@ -95,10 +100,21 @@ struct TrackView: View {
                 Text("\(Int(camera.maxFPS)) fps")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                Text(store.cameraMount == .besidePitcher ? "BESIDE" : "BEHIND")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
             }
         }
         .padding()
         .background(.ultraThinMaterial.opacity(0.85))
+    }
+
+    private func syncAnalyzer() {
+        analyzer.configure(
+            moundDistanceFt: store.moundDistanceFt,
+            zoneRect: store.strikeZoneRect,
+            mount: store.cameraMount
+        )
     }
 
     private func pitchFlashBanner(_ flash: PitchFlash) -> some View {

@@ -4,13 +4,17 @@ import Foundation
 final class PitchStore: ObservableObject {
     @Published private(set) var sessions: [PitchSession] = []
     @Published var activeSessionID: UUID?
-    @Published var strikeZoneRect: StrikeZoneRect = .default
-    @Published var moundDistanceFt: Double = 60.5
+    @Published var strikeZoneRect: StrikeZoneRect = .defaultZone(for: .besidePitcher, handedness: .right)
+    @Published var moundDistanceFt: Double = 46
+    @Published var cameraMount: CameraMount = .besidePitcher
+    @Published var pitcherHandedness: PitcherHandedness = .right
 
     private let storageKey = "pitch-tracker-ios-sessions-v1"
-    private let zoneKey = "pitch-tracker-zone-v1"
+    private let zoneKey = "pitch-tracker-zone-v2"
     private let moundKey = "pitch-tracker-mound-ft"
     private let pitcherKey = "pitch-tracker-last-pitcher"
+    private let mountKey = "pitch-tracker-camera-mount"
+    private let handednessKey = "pitch-tracker-handedness"
 
     init() {
         load()
@@ -73,6 +77,17 @@ final class PitchStore: ObservableObject {
         UserDefaults.standard.set(ft, forKey: moundKey)
     }
 
+    func updateCameraSetup(mount: CameraMount, handedness: PitcherHandedness, resetZone: Bool) {
+        cameraMount = mount
+        pitcherHandedness = handedness
+        UserDefaults.standard.set(mount.rawValue, forKey: mountKey)
+        UserDefaults.standard.set(handedness.rawValue, forKey: handednessKey)
+        if resetZone {
+            strikeZoneRect = StrikeZoneRect.defaultZone(for: mount, handedness: handedness)
+            UserDefaults.standard.set(try? JSONEncoder().encode(strikeZoneRect), forKey: zoneKey)
+        }
+    }
+
     private func persist() {
         if let data = try? JSONEncoder().encode(sessions) {
             UserDefaults.standard.set(data, forKey: storageKey)
@@ -90,8 +105,20 @@ final class PitchStore: ObservableObject {
            zone.isPlausible {
             strikeZoneRect = zone
         }
+        if let rawMount = UserDefaults.standard.string(forKey: mountKey),
+           let mount = CameraMount(rawValue: rawMount) {
+            cameraMount = mount
+        }
+        if let rawHand = UserDefaults.standard.string(forKey: handednessKey),
+           let hand = PitcherHandedness(rawValue: rawHand) {
+            pitcherHandedness = hand
+        }
         let mound = UserDefaults.standard.double(forKey: moundKey)
-        if mound > 0 { moundDistanceFt = mound }
+        if mound > 0 {
+            moundDistanceFt = mound
+        } else if cameraMount == .besidePitcher {
+            moundDistanceFt = 46
+        }
     }
 
     func exportActiveSessionJSON() -> URL? {

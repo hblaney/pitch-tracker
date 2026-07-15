@@ -32,6 +32,7 @@ final class PreviewView: UIView {
 }
 
 struct StrikeZoneOverlay: View {
+    let mount: CameraMount
     let rect: StrikeZoneRect
     let trajectoryPoints: [CGPoint]
     let pendingPoint: CGPoint?
@@ -48,17 +49,25 @@ struct StrikeZoneOverlay: View {
                 height: rect.height * h
             )
             ZStack {
-                StrikeZonePlateShape()
-                    .stroke(Color.green.opacity(0.95), lineWidth: 2)
-                    .background(
-                        StrikeZonePlateShape()
-                            .fill(Color.green.opacity(0.08))
-                    )
-                    .frame(width: zoneRect.width, height: zoneRect.height + zoneRect.width * 0.42)
-                    .position(
-                        x: zoneRect.midX,
-                        y: zoneRect.midY + zoneRect.width * 0.21
-                    )
+                if mount == .behindCatcher {
+                    StrikeZonePlateShape()
+                        .stroke(Color.green.opacity(0.95), lineWidth: 2)
+                        .background(
+                            StrikeZonePlateShape()
+                                .fill(Color.green.opacity(0.08))
+                        )
+                        .frame(width: zoneRect.width, height: zoneRect.height + zoneRect.width * 0.42)
+                        .position(
+                            x: zoneRect.midX,
+                            y: zoneRect.midY + zoneRect.width * 0.21
+                        )
+                } else {
+                    RoundedRectangle(cornerRadius: 3)
+                        .stroke(Color.green.opacity(0.95), lineWidth: 2)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(Color.green.opacity(0.08)))
+                        .frame(width: zoneRect.width, height: zoneRect.height)
+                        .position(x: zoneRect.midX, y: zoneRect.midY)
+                }
 
                 Path { path in
                     guard trajectoryPoints.count > 1 else { return }

@@ -45,6 +45,49 @@ enum PitchResult: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum PitcherHandedness: String, Codable, CaseIterable, Identifiable {
+    case right, left
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .right: return "Right-handed"
+        case .left: return "Left-handed"
+        }
+    }
+
+    /// Open side = away from throwing arm; safest spot for a side tripod.
+    var openSideLabel: String {
+        switch self {
+        case .right: return "first-base side (your left)"
+        case .left: return "third-base side (your right)"
+        }
+    }
+}
+
+enum CameraMount: String, Codable, CaseIterable, Identifiable {
+    case besidePitcher
+    case behindCatcher
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .besidePitcher: return "Beside pitcher"
+        case .behindCatcher: return "Behind catcher"
+        }
+    }
+
+    var setupHint: String {
+        switch self {
+        case .besidePitcher:
+            return "Tripod 3–6 ft to your open side. Camera points at the plate. You never throw at the phone."
+        case .behindCatcher:
+            return "Tripod centered behind home plate, elevated. Ball hits the net in front of the phone."
+        }
+    }
+}
+
 struct Pitch: Identifiable, Codable, Equatable {
     var id: UUID
     var pitchNumber: Int
@@ -138,6 +181,28 @@ struct StrikeZoneRect: Codable, Equatable {
     /// Sized for portrait phone preview — wide zone, not a tall "door".
     static let `default` = StrikeZoneRect(x: 0.365, y: 0.34, width: 0.27, height: 0.155)
 
+    static func defaultZone(for mount: CameraMount, handedness: PitcherHandedness) -> StrikeZoneRect {
+        switch mount {
+        case .behindCatcher:
+            return .default
+        case .besidePitcher:
+            // Plate is farther away and smaller in frame; zone sits upper-center with slight horizontal bias.
+            switch handedness {
+            case .right:
+                return StrikeZoneRect(x: 0.38, y: 0.48, width: 0.22, height: 0.115)
+            case .left:
+                return StrikeZoneRect(x: 0.34, y: 0.48, width: 0.22, height: 0.115)
+            }
+        }
+    }
+
+    func withCorrectAspect(for mount: CameraMount, screenAspect heightOverWidth: Double = 852.0 / 393.0) -> StrikeZoneRect {
+        var copy = self
+        let aspectMultiplier = mount == .besidePitcher ? 1.08 : 1.0
+        copy.height = copy.width / (Self.zoneAspect * heightOverWidth * aspectMultiplier)
+        return copy
+    }
+
     func contains(normalized nx: Double, ny: Double) -> Bool {
         nx >= x && nx <= x + width && ny >= y && ny <= y + height
     }
@@ -154,9 +219,7 @@ struct StrikeZoneRect: Codable, Equatable {
     }
 
     func withCorrectAspect(screenAspect heightOverWidth: Double = 852.0 / 393.0) -> StrikeZoneRect {
-        var copy = self
-        copy.height = copy.width / (Self.zoneAspect * heightOverWidth)
-        return copy
+        withCorrectAspect(for: .behindCatcher, screenAspect: heightOverWidth)
     }
 }
 

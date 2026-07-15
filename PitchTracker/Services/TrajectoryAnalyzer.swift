@@ -14,17 +14,19 @@ final class TrajectoryAnalyzer: ObservableObject {
     private var idleFrames = 0
     private var firstTimestamp: CMTime?
     private var lastTimestamp: CMTime?
-    private var moundDistanceFt: Double = 60.5
-    private var zoneRect: StrikeZoneRect = .default
+    private var moundDistanceFt: Double = 46
+    private var zoneRect: StrikeZoneRect = .defaultZone(for: .besidePitcher, handedness: .right)
+    private var mount: CameraMount = .besidePitcher
     private let idleReset = 18
     private var cooldownUntil: Date?
 
     private var frameCount = 0
     private var lastFrameTime: CMTime?
 
-    func configure(moundDistanceFt: Double, zoneRect: StrikeZoneRect) {
+    func configure(moundDistanceFt: Double, zoneRect: StrikeZoneRect, mount: CameraMount) {
         self.moundDistanceFt = moundDistanceFt
         self.zoneRect = zoneRect
+        self.mount = mount
         prepareForNextPitch()
         setupRequest()
     }
@@ -60,9 +62,14 @@ final class TrajectoryAnalyzer: ObservableObject {
                 self?.handleResults(req: req, error: err)
             }
         }
-        request?.regionOfInterest = CGRect(x: 0, y: 0.15, width: 1, height: 0.75)
-        request?.objectMinimumNormalizedRadius = 0.004
-        request?.objectMaximumNormalizedRadius = 0.06
+        request?.regionOfInterest = switch mount {
+        case .besidePitcher:
+            CGRect(x: 0.05, y: 0.18, width: 0.9, height: 0.72)
+        case .behindCatcher:
+            CGRect(x: 0, y: 0.15, width: 1, height: 0.75)
+        }
+        request?.objectMinimumNormalizedRadius = mount == .besidePitcher ? 0.003 : 0.004
+        request?.objectMaximumNormalizedRadius = mount == .besidePitcher ? 0.05 : 0.06
     }
 
     func process(sampleBuffer: CMSampleBuffer, timestamp: CMTime) {
@@ -118,7 +125,11 @@ final class TrajectoryAnalyzer: ObservableObject {
             return
         }
 
-        let mph = VelocityCalculator.mph(distanceFeet: moundDistanceFt, durationSeconds: duration)
+        let mph = VelocityCalculator.mph(
+            distanceFeet: moundDistanceFt,
+            durationSeconds: duration,
+            mount: mount
+        )
         let clamped = zoneRect.clampPoint(crossing.x, crossing.y)
         let hit = TrajectoryHit(
             crossingX: clamped.0,
